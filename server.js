@@ -1,6 +1,6 @@
 const path = require("path");
 const express = require("express");
-const { nanoid } = require("nanoid");
+const { randomUUID } = require("crypto");
 
 const app = express();
 // Default to 3850; override with PORT env if needed.
@@ -60,7 +60,8 @@ app.post("/api/pastes", (req, res) => {
   const languageInput = (req.body.language || "none").toString();
   const language = /^[a-z0-9.+-]+$/i.test(languageInput) ? languageInput.toLowerCase() : "none";
 
-  const id = nanoid(10);
+  // Use random UUID trimmed for a short, shareable id.
+  const id = randomUUID().replace(/-/g, "").slice(0, 10);
   const expiresAt = computeExpiry(expiresIn);
   const entry = {
     id,

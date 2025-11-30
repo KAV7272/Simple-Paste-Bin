@@ -1,11 +1,6 @@
 const form = document.getElementById("paste-form");
 const textarea = document.getElementById("paste");
 const expiresSelect = document.getElementById("expiresIn");
-const loginPanel = document.getElementById("login-panel");
-const loginInput = document.getElementById("login-password");
-const loginSubmit = document.getElementById("login-submit");
-const signupSubmit = document.getElementById("signup-submit");
-const loginError = document.getElementById("login-error");
 const themeToggle = document.getElementById("theme-toggle");
 const historyList = document.getElementById("history-list");
 const historyEmpty = document.getElementById("history-empty");
@@ -17,11 +12,12 @@ const imageEmpty = document.getElementById("image-empty");
 
 let historyData = new Map();
 let authenticated = false;
+let currentUser = null;
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!authenticated) {
-    await ensureAuth();
+    window.location.href = "/login";
     return;
   }
 
@@ -125,20 +121,6 @@ imageList.addEventListener("click", async (event) => {
     const ok = await copyImageToClipboard(dataUrl);
     btn.textContent = ok ? "Copied!" : "Copy failed";
     setTimeout(() => (btn.textContent = "Copy"), 1200);
-  }
-});
-
-loginSubmit.addEventListener("click", async () => {
-  await login();
-});
-
-signupSubmit.addEventListener("click", async () => {
-  await signup();
-});
-
-loginInput.addEventListener("keyup", async (e) => {
-  if (e.key === "Enter") {
-    await login();
   }
 });
 
@@ -250,59 +232,9 @@ async function ensureAuth() {
   const data = await res.json();
   authenticated = !!data.authenticated;
   if (authenticated) {
-    loginPanel.classList.add("hidden");
-    form.classList.remove("hidden");
     await Promise.all([loadHistory(), loadImages()]);
   } else {
-    loginPanel.classList.remove("hidden");
-    form.classList.add("hidden");
-    signupSubmit.disabled = !data.canSignup;
-  }
-}
-
-async function login() {
-  const password = loginInput.value;
-  try {
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error || "Login failed.");
-    }
-    authenticated = true;
-    loginError.classList.add("hidden");
-    loginPanel.classList.add("hidden");
-    form.classList.remove("hidden");
-    await loadHistory();
-  } catch (err) {
-    loginError.textContent = err.message;
-    loginError.classList.remove("hidden");
-  }
-}
-
-async function signup() {
-  const password = loginInput.value;
-  try {
-    const res = await fetch("/api/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error || "Signup failed.");
-    }
-    authenticated = true;
-    loginError.classList.add("hidden");
-    loginPanel.classList.add("hidden");
-    form.classList.remove("hidden");
-    await Promise.all([loadHistory(), loadImages()]);
-  } catch (err) {
-    loginError.textContent = err.message;
-    loginError.classList.remove("hidden");
+    window.location.href = "/login";
   }
 }
 

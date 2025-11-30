@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | Clipboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-theme="light">
+  <main class="panel panel--login">
+    <div class="stack">
+      <p class="eyebrow">Clipboard</p>
+      <h1>Login</h1>
+      <p class="lede">Enter your username and password. If no admin exists, you can create one.</p>
+      <label class="stack__label" for="username">Username</label>
+      <input id="username" placeholder="Username">
+      <label class="stack__label" for="password">Password</label>
+      <input id="password" type="password" placeholder="Password">
+      <div class="row">
+        <button id="login-btn" class="primary">Login</button>
+        <button id="signup-btn" class="ghost">Create admin</button>
+      </div>
+      <p id="login-msg" class="status error hidden"></p>
+    </div>
+  </main>
+  <script src="login.js"></script>
+</body>
+</html>

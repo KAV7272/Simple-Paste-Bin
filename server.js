@@ -12,6 +12,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret-change-me";
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 let adminPassword = ADMIN_PASSWORD_ENV || null;
+let adminUsername = null;
 
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser(SESSION_SECRET));
@@ -64,16 +65,27 @@ function requireAuth(req, res, next) {
 }
 
 app.post("/api/login", (req, res) => {
-  const { password } = req.body || {};
+  const { password, username } = req.body || {};
+  const user = typeof username === "string" ? username.trim() : "";
+  if (!user) {
+    return res.status(400).json({ error: "Username required." });
+  }
   // Admin login
   if ((adminPassword && password === adminPassword) || (ADMIN_PASSWORD_ENV && password === ADMIN_PASSWORD_ENV)) {
+    adminUsername = adminUsername || user;
     res.cookie("session", "admin", {
       httpOnly: true,
       signed: true,
       sameSite: "lax",
       maxAge: SESSION_MAX_AGE,
     });
-    return res.json({ ok: true, authenticated: true, role: "admin" });
+    res.cookie("username", user, {
+      httpOnly: true,
+      signed: true,
+      sameSite: "lax",
+      maxAge: SESSION_MAX_AGE,
+    });
+    return res.json({ ok: true, authenticated: true, role: "admin", username: user });
   }
 
   if (password !== APP_PASSWORD) {
@@ -85,7 +97,13 @@ app.post("/api/login", (req, res) => {
     sameSite: "lax",
     maxAge: SESSION_MAX_AGE,
   });
-  res.json({ ok: true, authenticated: true, role: "user" });
+  res.cookie("username", user, {
+    httpOnly: true,
+    signed: true,
+    sameSite: "lax",
+    maxAge: SESSION_MAX_AGE,
+  });
+  res.json({ ok: true, authenticated: true, role: "user", username: user });
 });
 
 app.post("/api/signup", (req, res) => {
@@ -95,31 +113,45 @@ app.post("/api/signup", (req, res) => {
   if (adminPassword) {
     return res.status(400).json({ error: "Admin already created." });
   }
-  const { password } = req.body || {};
+  const { password, username } = req.body || {};
+  const user = typeof username === "string" ? username.trim() : "";
+  if (!user) {
+    return res.status(400).json({ error: "Username required." });
+  }
   if (typeof password !== "string" || password.length < 4) {
     return res.status(400).json({ error: "Password required (min 4 chars)." });
   }
   adminPassword = password;
+  adminUsername = user;
   res.cookie("session", "admin", {
     httpOnly: true,
     signed: true,
     sameSite: "lax",
     maxAge: SESSION_MAX_AGE,
   });
-  res.json({ ok: true, authenticated: true, role: "admin" });
+  res.cookie("username", user, {
+    httpOnly: true,
+    signed: true,
+    sameSite: "lax",
+    maxAge: SESSION_MAX_AGE,
+  });
+  res.json({ ok: true, authenticated: true, role: "admin", username: user });
 });
 
 app.post("/api/logout", (req, res) => {
   res.clearCookie("session");
+  res.clearCookie("username");
   res.json({ ok: true });
 });
 
 app.get("/api/session", (req, res) => {
   const session = req.signedCookies && req.signedCookies.session;
+  const user = req.signedCookies && req.signedCookies.username;
   res.json({
     authenticated: isAuthed(req),
     role: session === "admin" ? "admin" : "user",
     canSignup: !adminPassword && !ADMIN_PASSWORD_ENV,
+    username: user || null,
   });
 });
 

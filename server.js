@@ -18,6 +18,10 @@ app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser(SESSION_SECRET));
 app.use(express.static(path.join(__dirname, "public")));
 
+app.get("/login", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "login.html"));
+});
+
 // In-memory store: id -> { content, createdAt, expiresAt }
 const pastes = new Map();
 const images = new Map(); // id -> { dataUrl, contentType, createdAt }

@@ -9,8 +9,8 @@
 }
 
 [data-theme="light"] {
-  --bg: #ffffff;
-  --panel: #ffffff;
+  --bg: #f4f1eb;
+  --panel: #fdfaf4;
   --accent: #2563eb;
   --text: #0f172a;
   --muted: #475569;
@@ -32,6 +32,12 @@ body {
     var(--bg);
   color: var(--text);
   min-height: 100vh;
+}
+
+[data-theme="light"] body {
+  background: radial-gradient(120% 120% at 20% 20%, rgba(37, 99, 235, 0.06), transparent),
+    radial-gradient(140% 140% at 80% 0%, rgba(14, 165, 233, 0.05), transparent),
+    var(--bg);
 }
 
 a {

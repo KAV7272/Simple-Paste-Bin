@@ -124,13 +124,12 @@ async function loadHistory() {
       const preview = document.createElement("div");
       preview.className = "history__preview";
       preview.textContent = paste.content.slice(0, 400);
-      if (paste.content.length > 400) preview.textContent += "…";
+  if (paste.content.length > 400) preview.textContent += "…";
 
-      const actions = document.createElement("div");
-      actions.className = "history__actions";
-      actions.innerHTML = `
+  const actions = document.createElement("div");
+  actions.className = "history__actions";
+  actions.innerHTML = `
         <button class="ghost" data-action="copy" data-id="${paste.id}">Copy</button>
-        <a class="ghost" href="${paste.link}" target="_blank" rel="noopener">Open</a>
         <button class="danger" data-action="delete" data-id="${paste.id}">Delete</button>
       `;
 

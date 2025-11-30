@@ -58,8 +58,8 @@ historyList.addEventListener("click", async (event) => {
   if (!paste) return;
 
   if (action === "copy") {
-    await navigator.clipboard.writeText(paste.content);
-    btn.textContent = "Copied!";
+    const ok = await copyToClipboard(paste.content);
+    btn.textContent = ok ? "Copied!" : "Copy failed";
     setTimeout(() => (btn.textContent = "Copy"), 1200);
   }
 
@@ -183,6 +183,28 @@ function applySavedTheme() {
   const saved = localStorage.getItem("theme");
   if (saved === "light" || saved === "dark") {
     document.body.dataset.theme = saved;
+  }
+}
+
+async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    // Fallback for older browsers/denied permissions
+    const temp = document.createElement("textarea");
+    temp.value = text;
+    temp.style.position = "fixed";
+    temp.style.opacity = "0";
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand("copy");
+    document.body.removeChild(temp);
+    return true;
+  } catch (err) {
+    console.error("Copy failed", err);
+    return false;
   }
 }
 

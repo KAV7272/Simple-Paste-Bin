@@ -1,7 +1,8 @@
+const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const cookieParser = require("cookie-parser");
-const { randomUUID } = require("crypto");
+const { randomUUID, createHash } = require("crypto");
 
 const app = express();
 // Default to 3850; override with PORT env if needed.
@@ -11,8 +12,46 @@ const ADMIN_PASSWORD_ENV = process.env.ADMIN_PASSWORD || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret-change-me";
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-let adminPassword = ADMIN_PASSWORD_ENV || null;
+const ADMIN_STORE = path.join(__dirname, ".admin.json");
+
+let adminPasswordHash = null;
 let adminUsername = null;
+
+function hashPassword(password) {
+  return createHash("sha256").update(password, "utf8").digest("hex");
+}
+
+function loadAdminFromDisk() {
+  if (ADMIN_PASSWORD_ENV) {
+    adminPasswordHash = hashPassword(ADMIN_PASSWORD_ENV);
+    adminUsername = "admin";
+    return;
+  }
+  if (!fs.existsSync(ADMIN_STORE)) return;
+  try {
+    const raw = fs.readFileSync(ADMIN_STORE, "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.passwordHash) {
+      adminPasswordHash = parsed.passwordHash;
+      adminUsername = parsed.username || "admin";
+    }
+  } catch (err) {
+    console.error("Failed to load admin store:", err);
+  }
+}
+
+function persistAdmin(username, password) {
+  adminUsername = username;
+  adminPasswordHash = hashPassword(password);
+  const payload = { username: adminUsername, passwordHash: adminPasswordHash };
+  try {
+    fs.writeFileSync(ADMIN_STORE, JSON.stringify(payload), "utf8");
+  } catch (err) {
+    console.error("Failed to persist admin store:", err);
+  }
+}
+
+loadAdminFromDisk();
 
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser(SESSION_SECRET));
@@ -74,8 +113,8 @@ app.post("/api/login", (req, res) => {
   if (!user) {
     return res.status(400).json({ error: "Username required." });
   }
-  // Admin login
-  if ((adminPassword && password === adminPassword) || (ADMIN_PASSWORD_ENV && password === ADMIN_PASSWORD_ENV)) {
+  // Admin login (env or stored)
+  if (adminPasswordHash && hashPassword(password) === adminPasswordHash) {
     adminUsername = adminUsername || user;
     res.cookie("session", "admin", {
       httpOnly: true,
@@ -114,7 +153,7 @@ app.post("/api/signup", (req, res) => {
   if (ADMIN_PASSWORD_ENV) {
     return res.status(400).json({ error: "Signup disabled; admin password is configured." });
   }
-  if (adminPassword) {
+  if (adminPasswordHash) {
     return res.status(400).json({ error: "Admin already created." });
   }
   const { password, username } = req.body || {};
@@ -125,8 +164,7 @@ app.post("/api/signup", (req, res) => {
   if (typeof password !== "string" || password.length < 4) {
     return res.status(400).json({ error: "Password required (min 4 chars)." });
   }
-  adminPassword = password;
-  adminUsername = user;
+  persistAdmin(user, password);
   res.cookie("session", "admin", {
     httpOnly: true,
     signed: true,
@@ -154,7 +192,7 @@ app.get("/api/session", (req, res) => {
   res.json({
     authenticated: isAuthed(req),
     role: session === "admin" ? "admin" : "user",
-    canSignup: !adminPassword && !ADMIN_PASSWORD_ENV,
+    canSignup: !adminPasswordHash && !ADMIN_PASSWORD_ENV,
     username: user || null,
   });
 });

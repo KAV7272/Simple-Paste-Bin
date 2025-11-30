@@ -3,7 +3,8 @@ const express = require("express");
 const { nanoid } = require("nanoid");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+// Default to 3850; override with PORT env if needed.
+const PORT = process.env.PORT || 3850;
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));

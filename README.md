@@ -7,15 +7,15 @@ Minimal pastebin-style app with syntax highlighting (Prism.js) and configurable 
 ```bash
 npm install
 npm start
-# open http://localhost:3000
+# open http://localhost:3850
 ```
 
 ## Docker
 
 ```bash
 docker build -t paste-app .
-docker run -p 3000:3000 paste-app
-# open http://localhost:3000
+docker run -p 3850:3850 paste-app
+# open http://localhost:3850
 ```
 
 ## API

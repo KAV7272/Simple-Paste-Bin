@@ -33,15 +33,17 @@ function isExpired(entry) {
   return Date.now() > entry.expiresAt;
 }
 
-// Periodic cleanup of expired pastes
-setInterval(() => {
+function cleanupExpired() {
   const now = Date.now();
   for (const [id, entry] of pastes) {
     if (entry.expiresAt && now > entry.expiresAt) {
       pastes.delete(id);
     }
   }
-}, 60 * 1000).unref();
+}
+
+// Periodic cleanup of expired pastes
+setInterval(cleanupExpired, 60 * 1000).unref();
 
 app.get("/p/:id", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "view.html"));
@@ -83,6 +85,25 @@ app.post("/api/pastes", (req, res) => {
   });
 });
 
+app.get("/api/pastes", (req, res) => {
+  cleanupExpired();
+  const list = Array.from(pastes.values())
+    .filter((entry) => !isExpired(entry))
+    .sort((a, b) => b.createdAt - a.createdAt);
+
+  res.json(
+    list.map((entry) => ({
+      id: entry.id,
+      content: entry.content,
+      language: entry.language,
+      createdAt: entry.createdAt,
+      expiresAt: entry.expiresAt,
+      expiresIn: entry.expiresIn,
+      link: `/p/${entry.id}`,
+    }))
+  );
+});
+
 app.get("/api/pastes/:id", (req, res) => {
   const entry = pastes.get(req.params.id);
   if (!entry || isExpired(entry)) {
@@ -98,6 +119,15 @@ app.get("/api/pastes/:id", (req, res) => {
     expiresAt: entry.expiresAt,
     expiresIn: entry.expiresIn,
   });
+});
+
+app.delete("/api/pastes/:id", (req, res) => {
+  const entry = pastes.get(req.params.id);
+  if (!entry) {
+    return res.status(404).json({ error: "Paste not found." });
+  }
+  pastes.delete(req.params.id);
+  res.json({ ok: true });
 });
 
 app.listen(PORT, () => {

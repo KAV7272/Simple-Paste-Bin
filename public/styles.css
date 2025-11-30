@@ -55,6 +55,11 @@ h1 {
   font-size: clamp(30px, 4vw, 44px);
 }
 
+h2 {
+  margin: 4px 0 8px;
+  font-size: clamp(22px, 3vw, 28px);
+}
+
 .lede {
   margin: 0;
   color: var(--muted);
@@ -157,6 +162,89 @@ button:hover {
 .status {
   margin: 8px 0 0;
   color: var(--muted);
+}
+
+.history {
+  margin-top: 28px;
+  display: grid;
+  gap: 12px;
+}
+
+.history__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.history__item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 8px;
+}
+
+.history__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.pill {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.history__preview {
+  background: #0b1221;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+}
+
+.history__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history__actions a {
+  text-decoration: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+button.danger {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(239, 68, 68, 0.3);
 }
 
 .code-block {

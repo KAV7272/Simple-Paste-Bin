@@ -23,9 +23,12 @@
   <main class="panel">
     <section id="login-panel" class="stack hidden">
       <h2>Login</h2>
-      <p class="status">Enter the password to access your clipboard.</p>
+      <p class="status">Enter the password to access your clipboard. If no admin exists, you can create one.</p>
       <input id="login-password" type="password" placeholder="Password">
-      <button id="login-submit" class="primary">Login</button>
+      <div class="row">
+        <button id="login-submit" class="primary">Login</button>
+        <button id="signup-submit" class="ghost">Create admin</button>
+      </div>
       <p id="login-error" class="status error hidden"></p>
     </section>
 

@@ -7,9 +7,11 @@ const app = express();
 // Default to 3850; override with PORT env if needed.
 const PORT = process.env.PORT || 3850;
 const APP_PASSWORD = process.env.APP_PASSWORD || "";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
+const ADMIN_PASSWORD_ENV = process.env.ADMIN_PASSWORD || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret-change-me";
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+let adminPassword = ADMIN_PASSWORD_ENV || null;
 
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser(SESSION_SECRET));
@@ -53,7 +55,6 @@ function cleanupExpired() {
 setInterval(cleanupExpired, 60 * 1000).unref();
 
 function isAuthed(req) {
-  if (!APP_PASSWORD) return true;
   return req.signedCookies && (req.signedCookies.session === "ok" || req.signedCookies.session === "admin");
 }
 
@@ -65,7 +66,7 @@ function requireAuth(req, res, next) {
 app.post("/api/login", (req, res) => {
   const { password } = req.body || {};
   // Admin login
-  if (ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
+  if ((adminPassword && password === adminPassword) || (ADMIN_PASSWORD_ENV && password === ADMIN_PASSWORD_ENV)) {
     res.cookie("session", "admin", {
       httpOnly: true,
       signed: true,
@@ -73,10 +74,6 @@ app.post("/api/login", (req, res) => {
       maxAge: SESSION_MAX_AGE,
     });
     return res.json({ ok: true, authenticated: true, role: "admin" });
-  }
-
-  if (!APP_PASSWORD) {
-    return res.json({ ok: true, authenticated: true, role: "user", message: "Login not required." });
   }
 
   if (password !== APP_PASSWORD) {
@@ -91,6 +88,27 @@ app.post("/api/login", (req, res) => {
   res.json({ ok: true, authenticated: true, role: "user" });
 });
 
+app.post("/api/signup", (req, res) => {
+  if (ADMIN_PASSWORD_ENV) {
+    return res.status(400).json({ error: "Signup disabled; admin password is configured." });
+  }
+  if (adminPassword) {
+    return res.status(400).json({ error: "Admin already created." });
+  }
+  const { password } = req.body || {};
+  if (typeof password !== "string" || password.length < 4) {
+    return res.status(400).json({ error: "Password required (min 4 chars)." });
+  }
+  adminPassword = password;
+  res.cookie("session", "admin", {
+    httpOnly: true,
+    signed: true,
+    sameSite: "lax",
+    maxAge: SESSION_MAX_AGE,
+  });
+  res.json({ ok: true, authenticated: true, role: "admin" });
+});
+
 app.post("/api/logout", (req, res) => {
   res.clearCookie("session");
   res.json({ ok: true });
@@ -98,7 +116,11 @@ app.post("/api/logout", (req, res) => {
 
 app.get("/api/session", (req, res) => {
   const session = req.signedCookies && req.signedCookies.session;
-  res.json({ authenticated: isAuthed(req), role: session === "admin" ? "admin" : "user" });
+  res.json({
+    authenticated: isAuthed(req),
+    role: session === "admin" ? "admin" : "user",
+    canSignup: !adminPassword && !ADMIN_PASSWORD_ENV,
+  });
 });
 
 // Everything below requires auth if a password is configured

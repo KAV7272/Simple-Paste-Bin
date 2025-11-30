@@ -33,26 +33,7 @@
       <label class="stack__label" for="paste">Your paste</label>
       <textarea id="paste" name="paste" placeholder="Paste text here..." required></textarea>
 
-      <div class="row">
-        <label for="language">Syntax</label>
-        <select id="language" name="language">
-          <option value="none">Plain text</option>
-          <option value="javascript">JavaScript</option>
-          <option value="typescript">TypeScript</option>
-          <option value="python">Python</option>
-          <option value="java">Java</option>
-          <option value="go">Go</option>
-          <option value="c">C</option>
-          <option value="cpp">C++</option>
-          <option value="csharp">C#</option>
-          <option value="ruby">Ruby</option>
-          <option value="rust">Rust</option>
-          <option value="bash">Bash</option>
-          <option value="json">JSON</option>
-          <option value="markdown">Markdown</option>
-          <option value="markup">HTML / Markup</option>
-        </select>
-      </div>
+      <p class="status">Syntax will auto-detect. Expiration is optional.</p>
 
       <div class="row">
         <label for="expiresIn">Expires</label>
@@ -78,6 +59,21 @@
       </div>
       <p id="history-empty" class="status">No saved copies yet.</p>
       <ul id="history-list" class="history__list"></ul>
+    </section>
+
+    <section class="history">
+      <div class="history__header">
+        <div>
+          <p class="eyebrow">Images</p>
+          <h2>Saved images</h2>
+        </div>
+        <div class="row">
+          <input type="file" id="image-input" accept="image/*">
+          <button id="image-upload" class="primary">Upload</button>
+        </div>
+      </div>
+      <p id="image-empty" class="status">No images yet.</p>
+      <ul id="image-list" class="history__list"></ul>
     </section>
   </main>
 

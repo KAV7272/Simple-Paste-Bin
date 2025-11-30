@@ -268,6 +268,23 @@ button:hover {
   font-size: 15px;
 }
 
+.history__image {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.history__image img {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
 button.danger {
   background: linear-gradient(135deg, #ef4444, #b91c1c);
   color: #fff;

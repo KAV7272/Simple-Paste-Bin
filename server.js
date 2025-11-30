@@ -7,6 +7,7 @@ const app = express();
 // Default to 3850; override with PORT env if needed.
 const PORT = process.env.PORT || 3850;
 const APP_PASSWORD = process.env.APP_PASSWORD || "";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret-change-me";
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -16,6 +17,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // In-memory store: id -> { content, createdAt, expiresAt }
 const pastes = new Map();
+const images = new Map(); // id -> { dataUrl, contentType, createdAt }
 
 const EXPIRATIONS = {
   "10m": 10 * 60 * 1000,
@@ -52,7 +54,7 @@ setInterval(cleanupExpired, 60 * 1000).unref();
 
 function isAuthed(req) {
   if (!APP_PASSWORD) return true;
-  return req.signedCookies && req.signedCookies.session === "ok";
+  return req.signedCookies && (req.signedCookies.session === "ok" || req.signedCookies.session === "admin");
 }
 
 function requireAuth(req, res, next) {
@@ -61,10 +63,22 @@ function requireAuth(req, res, next) {
 }
 
 app.post("/api/login", (req, res) => {
-  if (!APP_PASSWORD) {
-    return res.json({ ok: true, authenticated: true, message: "Login not required." });
-  }
   const { password } = req.body || {};
+  // Admin login
+  if (ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
+    res.cookie("session", "admin", {
+      httpOnly: true,
+      signed: true,
+      sameSite: "lax",
+      maxAge: SESSION_MAX_AGE,
+    });
+    return res.json({ ok: true, authenticated: true, role: "admin" });
+  }
+
+  if (!APP_PASSWORD) {
+    return res.json({ ok: true, authenticated: true, role: "user", message: "Login not required." });
+  }
+
   if (password !== APP_PASSWORD) {
     return res.status(401).json({ error: "Invalid password." });
   }
@@ -74,7 +88,7 @@ app.post("/api/login", (req, res) => {
     sameSite: "lax",
     maxAge: SESSION_MAX_AGE,
   });
-  res.json({ ok: true, authenticated: true });
+  res.json({ ok: true, authenticated: true, role: "user" });
 });
 
 app.post("/api/logout", (req, res) => {
@@ -83,7 +97,8 @@ app.post("/api/logout", (req, res) => {
 });
 
 app.get("/api/session", (req, res) => {
-  res.json({ authenticated: isAuthed(req) });
+  const session = req.signedCookies && req.signedCookies.session;
+  res.json({ authenticated: isAuthed(req), role: session === "admin" ? "admin" : "user" });
 });
 
 // Everything below requires auth if a password is configured
@@ -103,8 +118,8 @@ app.post("/api/pastes", (req, res) => {
     return res.status(400).json({ error: "Invalid expiration option." });
   }
 
-  const languageInput = (req.body.language || "none").toString();
-  const language = /^[a-z0-9.+-]+$/i.test(languageInput) ? languageInput.toLowerCase() : "none";
+  const languageInput = (req.body.language || "auto").toString();
+  const language = languageInput === "auto" ? detectLanguage(content) : /^[a-z0-9.+-]+$/i.test(languageInput) ? languageInput.toLowerCase() : "none";
 
   // Use random UUID trimmed for a short, shareable id.
   const id = randomUUID().replace(/-/g, "").slice(0, 10);
@@ -174,6 +189,76 @@ app.delete("/api/pastes/:id", (req, res) => {
   res.json({ ok: true });
 });
 
+app.post("/api/images", (req, res) => {
+  const { dataUrl } = req.body || {};
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
+    return res.status(400).json({ error: "Invalid image data." });
+  }
+  // rudimentary size guard (~2MB)
+  if (dataUrl.length > 2 * 1024 * 1024) {
+    return res.status(400).json({ error: "Image too large (limit ~2MB)." });
+  }
+  const match = dataUrl.match(/^data:([^;]+);base64,/);
+  const contentType = match ? match[1] : "application/octet-stream";
+  const id = randomUUID().replace(/-/g, "").slice(0, 10);
+  const entry = { id, dataUrl, contentType, createdAt: Date.now() };
+  images.set(id, entry);
+  res.status(201).json(entry);
+});
+
+app.get("/api/images", (req, res) => {
+  const list = Array.from(images.values()).sort((a, b) => b.createdAt - a.createdAt);
+  res.json(list);
+});
+
+app.delete("/api/images/:id", (req, res) => {
+  if (!images.has(req.params.id)) {
+    return res.status(404).json({ error: "Image not found." });
+  }
+  images.delete(req.params.id);
+  res.json({ ok: true });
+});
+
 app.listen(PORT, () => {
   console.log(`Paste app running at http://localhost:${PORT}`);
 });
+
+function detectLanguage(content) {
+  const snippet = content.slice(0, 1000);
+  const trimmed = snippet.trim();
+  const lower = trimmed.toLowerCase();
+
+  const tests = [
+    { lang: "json", test: () => (trimmed.startsWith("{") || trimmed.startsWith("[")) && looksJson(trimmed) },
+    { lang: "html", test: () => /<\s*html[\s>]/i.test(snippet) || /<\s*(div|span|script|style|body|head)[\s>]/i.test(snippet) },
+    { lang: "markdown", test: () => /^#\s|\n#\s|```/.test(snippet) },
+    { lang: "python", test: () => /^def\s|\nclass\s|\nif __name__ == ['"]__main__['"]/.test(snippet) },
+    { lang: "bash", test: () => /^#!/.test(snippet) || /\bthen\b|\belif\b|\bfi\b/.test(snippet) },
+    { lang: "javascript", test: () => /\bfunction\b|\bconst\b|\blet\b|\bexport\b|\bimport\b/.test(snippet) },
+    { lang: "typescript", test: () => /\binterface\b|\btype\b|\benum\b/.test(snippet) && /\bexport\b/.test(snippet) },
+    { lang: "go", test: () => /\bpackage\s+\w+/.test(snippet) && /\bfunc\s+\w+\(/.test(snippet) },
+    { lang: "java", test: () => /\bpublic\s+(class|interface)\b/.test(snippet) },
+    { lang: "csharp", test: () => /\bnamespace\b.*\bclass\b/.test(snippet) && /\busing\s+\w+/.test(snippet) },
+    { lang: "cpp", test: () => /#include\s+<\w+>/.test(snippet) && /std::/.test(snippet) },
+    { lang: "c", test: () => /#include\s+<\w+>/.test(snippet) && /printf\s*\(/.test(snippet) },
+    { lang: "ruby", test: () => /\bdef\b.*\n\s+end/.test(snippet) || /\bputs\b/.test(snippet) },
+    { lang: "rust", test: () => /\bfn\s+\w+\s*\(/.test(snippet) && /\blet\s+mut\b/.test(snippet) },
+    { lang: "sql", test: () => /\bselect\b.+\bfrom\b/i.test(snippet) },
+  ];
+
+  for (const t of tests) {
+    if (t.test()) return t.lang;
+  }
+  if (/[{[(].+[)}\]]/.test(snippet) && /;/.test(snippet)) return "javascript";
+  if (/^\s*[-*]\s/.test(snippet)) return "markdown";
+  return "none";
+}
+
+function looksJson(text) {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
+  }
+}

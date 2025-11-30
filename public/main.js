@@ -1,7 +1,6 @@
 const form = document.getElementById("paste-form");
 const textarea = document.getElementById("paste");
 const expiresSelect = document.getElementById("expiresIn");
-const languageSelect = document.getElementById("language");
 const loginPanel = document.getElementById("login-panel");
 const loginInput = document.getElementById("login-password");
 const loginSubmit = document.getElementById("login-submit");
@@ -10,6 +9,10 @@ const themeToggle = document.getElementById("theme-toggle");
 const historyList = document.getElementById("history-list");
 const historyEmpty = document.getElementById("history-empty");
 const refreshHistoryBtn = document.getElementById("refresh-history");
+const imageInput = document.getElementById("image-input");
+const imageUploadBtn = document.getElementById("image-upload");
+const imageList = document.getElementById("image-list");
+const imageEmpty = document.getElementById("image-empty");
 
 let historyData = new Map();
 let authenticated = false;
@@ -32,7 +35,7 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch("/api/pastes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, expiresIn, language: languageSelect.value }),
+      body: JSON.stringify({ content, expiresIn, language: "auto" }),
     });
 
     if (!response.ok) {
@@ -49,6 +52,33 @@ form.addEventListener("submit", async (event) => {
 });
 
 refreshHistoryBtn.addEventListener("click", loadHistory);
+imageUploadBtn.addEventListener("click", async () => {
+  if (!authenticated) {
+    await ensureAuth();
+    return;
+  }
+  const file = imageInput.files && imageInput.files[0];
+  if (!file) {
+    showStatus("Pick an image to upload.");
+    return;
+  }
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    const res = await fetch("/api/images", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dataUrl }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error || "Upload failed.");
+    }
+    imageInput.value = "";
+    await Promise.all([loadHistory(), loadImages()]);
+  } catch (err) {
+    showStatus(err.message || "Upload failed.");
+  }
+});
 
 historyList.addEventListener("click", async (event) => {
   const btn = event.target.closest("button[data-action]");
@@ -71,6 +101,29 @@ historyList.addEventListener("click", async (event) => {
     } catch (err) {
       btn.disabled = false;
     }
+  }
+});
+
+imageList.addEventListener("click", async (event) => {
+  const btn = event.target.closest("button[data-action]");
+  if (!btn) return;
+  const { action, id } = btn.dataset;
+  if (action === "delete") {
+    btn.disabled = true;
+    try {
+      await fetch(`/api/images/${id}`, { method: "DELETE" });
+      await loadImages();
+    } catch (err) {
+      btn.disabled = false;
+    }
+  }
+  if (action === "copy") {
+    const item = btn.closest("li");
+    const dataUrl = item?.dataset.url;
+    if (!dataUrl) return;
+    const ok = await copyImageToClipboard(dataUrl);
+    btn.textContent = ok ? "Copied!" : "Copy failed";
+    setTimeout(() => (btn.textContent = "Copy"), 1200);
   }
 });
 
@@ -142,6 +195,51 @@ async function loadHistory() {
   }
 }
 
+async function loadImages() {
+  if (!authenticated) return;
+  try {
+    const res = await fetch("/api/images");
+    if (!res.ok) throw new Error("Failed to load images.");
+    const data = await res.json();
+    imageList.innerHTML = "";
+    if (!data.length) {
+      imageEmpty.textContent = "No images yet.";
+      imageEmpty.classList.remove("hidden");
+      return;
+    }
+    imageEmpty.classList.add("hidden");
+
+    data.forEach((img) => {
+      const li = document.createElement("li");
+      li.className = "history__item";
+      li.dataset.url = img.dataUrl;
+      const meta = document.createElement("div");
+      meta.className = "history__meta";
+      meta.innerHTML = `<span>#${img.id}</span><span>${formatDate(img.createdAt)}</span>`;
+
+      const preview = document.createElement("div");
+      preview.className = "history__image";
+      const imageEl = document.createElement("img");
+      imageEl.src = img.dataUrl;
+      imageEl.alt = "Saved image";
+      preview.appendChild(imageEl);
+
+      const actions = document.createElement("div");
+      actions.className = "history__actions";
+      actions.innerHTML = `
+        <button class="ghost" data-action="copy" data-id="${img.id}">Copy</button>
+        <button class="danger" data-action="delete" data-id="${img.id}">Delete</button>
+      `;
+
+      li.append(meta, preview, actions);
+      imageList.appendChild(li);
+    });
+  } catch (err) {
+    imageEmpty.textContent = err.message;
+    imageEmpty.classList.remove("hidden");
+  }
+}
+
 async function ensureAuth() {
   const res = await fetch("/api/session");
   const data = await res.json();
@@ -149,7 +247,7 @@ async function ensureAuth() {
   if (authenticated) {
     loginPanel.classList.add("hidden");
     form.classList.remove("hidden");
-    await loadHistory();
+    await Promise.all([loadHistory(), loadImages()]);
   } else {
     loginPanel.classList.remove("hidden");
     form.classList.add("hidden");
@@ -206,6 +304,37 @@ async function copyToClipboard(text) {
     console.error("Copy failed", err);
     return false;
   }
+}
+
+async function copyImageToClipboard(dataUrl) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.write) {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      return true;
+    }
+    // Fallback: trigger download
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = "image.png";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return true;
+  } catch (err) {
+    console.error("Image copy failed", err);
+    return false;
+  }
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 function formatDate(ts) {

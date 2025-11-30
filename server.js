@@ -1,12 +1,17 @@
 const path = require("path");
 const express = require("express");
+const cookieParser = require("cookie-parser");
 const { randomUUID } = require("crypto");
 
 const app = express();
 // Default to 3850; override with PORT env if needed.
 const PORT = process.env.PORT || 3850;
+const APP_PASSWORD = process.env.APP_PASSWORD || "";
+const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret-change-me";
+const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 app.use(express.json({ limit: "1mb" }));
+app.use(cookieParser(SESSION_SECRET));
 app.use(express.static(path.join(__dirname, "public")));
 
 // In-memory store: id -> { content, createdAt, expiresAt }
@@ -44,6 +49,45 @@ function cleanupExpired() {
 
 // Periodic cleanup of expired pastes
 setInterval(cleanupExpired, 60 * 1000).unref();
+
+function isAuthed(req) {
+  if (!APP_PASSWORD) return true;
+  return req.signedCookies && req.signedCookies.session === "ok";
+}
+
+function requireAuth(req, res, next) {
+  if (isAuthed(req)) return next();
+  return res.status(401).json({ error: "Auth required." });
+}
+
+app.post("/api/login", (req, res) => {
+  if (!APP_PASSWORD) {
+    return res.json({ ok: true, authenticated: true, message: "Login not required." });
+  }
+  const { password } = req.body || {};
+  if (password !== APP_PASSWORD) {
+    return res.status(401).json({ error: "Invalid password." });
+  }
+  res.cookie("session", "ok", {
+    httpOnly: true,
+    signed: true,
+    sameSite: "lax",
+    maxAge: SESSION_MAX_AGE,
+  });
+  res.json({ ok: true, authenticated: true });
+});
+
+app.post("/api/logout", (req, res) => {
+  res.clearCookie("session");
+  res.json({ ok: true });
+});
+
+app.get("/api/session", (req, res) => {
+  res.json({ authenticated: isAuthed(req) });
+});
+
+// Everything below requires auth if a password is configured
+app.use("/api", (req, res, next) => requireAuth(req, res, next));
 
 app.get("/p/:id", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "view.html"));

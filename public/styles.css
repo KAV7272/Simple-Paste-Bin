@@ -8,6 +8,16 @@
   --shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
 }
 
+[data-theme="light"] {
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --accent: #2563eb;
+  --text: #0f172a;
+  --muted: #475569;
+  --border: #e2e8f0;
+  --shadow: 0 14px 30px rgba(0, 0, 0, 0.08);
+}
+
 *,
 *::before,
 *::after {
@@ -39,6 +49,13 @@ a {
 .hero__content {
   max-width: 960px;
   margin: 0 auto;
+}
+
+.hero__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
 
 .eyebrow {
@@ -88,10 +105,14 @@ h2 {
   font-weight: 600;
 }
 
+.error {
+  color: #ef4444;
+}
+
 textarea {
   width: 100%;
   min-height: 240px;
-  background: #0b1221;
+  background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -101,7 +122,7 @@ textarea {
 }
 
 select, input {
-  background: #0b1221;
+  background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -213,7 +234,7 @@ button:hover {
 }
 
 .history__preview {
-  background: #0b1221;
+  background: var(--panel);
   border: 1px dashed var(--border);
   border-radius: 10px;
   padding: 10px;
@@ -248,7 +269,7 @@ button.danger {
 }
 
 .code-block {
-  background: #0b1221;
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px;

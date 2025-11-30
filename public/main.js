@@ -2,23 +2,29 @@ const form = document.getElementById("paste-form");
 const textarea = document.getElementById("paste");
 const expiresSelect = document.getElementById("expiresIn");
 const languageSelect = document.getElementById("language");
-const resultSection = document.getElementById("result");
-const linkInput = document.getElementById("link");
-const copyBtn = document.getElementById("copy");
-const statusEl = document.getElementById("status");
+const loginPanel = document.getElementById("login-panel");
+const loginInput = document.getElementById("login-password");
+const loginSubmit = document.getElementById("login-submit");
+const loginError = document.getElementById("login-error");
+const themeToggle = document.getElementById("theme-toggle");
 const historyList = document.getElementById("history-list");
 const historyEmpty = document.getElementById("history-empty");
 const refreshHistoryBtn = document.getElementById("refresh-history");
 
 let historyData = new Map();
+let authenticated = false;
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!authenticated) {
+    await ensureAuth();
+    return;
+  }
+
   const content = textarea.value.trim();
   const expiresIn = expiresSelect.value;
   if (!content) {
-    statusEl.textContent = "Paste cannot be empty.";
-    resultSection.classList.remove("hidden");
+    showStatus("Paste cannot be empty.");
     return;
   }
 
@@ -34,23 +40,12 @@ form.addEventListener("submit", async (event) => {
       throw new Error(error || "Failed to save paste.");
     }
 
-    const data = await response.json();
-    const absoluteLink = `${window.location.origin}${data.link}`;
-    linkInput.value = absoluteLink;
-    statusEl.textContent = data.expiresAt ? `Expires ${new Date(data.expiresAt).toLocaleString()}` : "Never expires";
-    resultSection.classList.remove("hidden");
+    textarea.value = "";
+    showStatus("Saved.");
     await loadHistory();
   } catch (err) {
-    statusEl.textContent = err.message;
-    resultSection.classList.remove("hidden");
+    showStatus(err.message);
   }
-});
-
-copyBtn.addEventListener("click", async () => {
-  if (!linkInput.value) return;
-  await navigator.clipboard.writeText(linkInput.value);
-  copyBtn.textContent = "Copied!";
-  setTimeout(() => (copyBtn.textContent = "Copy"), 1200);
 });
 
 refreshHistoryBtn.addEventListener("click", loadHistory);
@@ -79,7 +74,29 @@ historyList.addEventListener("click", async (event) => {
   }
 });
 
+loginSubmit.addEventListener("click", async () => {
+  await login();
+});
+
+loginInput.addEventListener("keyup", async (e) => {
+  if (e.key === "Enter") {
+    await login();
+  }
+});
+
+themeToggle.addEventListener("click", () => {
+  const next = document.body.dataset.theme === "light" ? "dark" : "light";
+  document.body.dataset.theme = next;
+  localStorage.setItem("theme", next);
+});
+
+function showStatus(text) {
+  historyEmpty.textContent = text;
+  historyEmpty.classList.remove("hidden");
+}
+
 async function loadHistory() {
+  if (!authenticated) return;
   try {
     const res = await fetch("/api/pastes");
     if (!res.ok) throw new Error("Failed to load history.");
@@ -126,6 +143,50 @@ async function loadHistory() {
   }
 }
 
+async function ensureAuth() {
+  const res = await fetch("/api/session");
+  const data = await res.json();
+  authenticated = !!data.authenticated;
+  if (authenticated) {
+    loginPanel.classList.add("hidden");
+    form.classList.remove("hidden");
+    await loadHistory();
+  } else {
+    loginPanel.classList.remove("hidden");
+    form.classList.add("hidden");
+  }
+}
+
+async function login() {
+  const password = loginInput.value;
+  try {
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error || "Login failed.");
+    }
+    authenticated = true;
+    loginError.classList.add("hidden");
+    loginPanel.classList.add("hidden");
+    form.classList.remove("hidden");
+    await loadHistory();
+  } catch (err) {
+    loginError.textContent = err.message;
+    loginError.classList.remove("hidden");
+  }
+}
+
+function applySavedTheme() {
+  const saved = localStorage.getItem("theme");
+  if (saved === "light" || saved === "dark") {
+    document.body.dataset.theme = saved;
+  }
+}
+
 function formatDate(ts) {
   return new Date(ts).toLocaleString();
 }
@@ -134,4 +195,5 @@ function formatExpiry(paste) {
   return paste.expiresAt ? `Expires ${formatDate(paste.expiresAt)}` : "Never expires";
 }
 
-loadHistory();
+applySavedTheme();
+ensureAuth();

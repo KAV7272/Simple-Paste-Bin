@@ -1,0 +1,13 @@
+{
+  "name": "paste-application",
+  "version": "1.0.0",
+  "description": "Simple pastebin-style app with syntax highlighting and expirations",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "nanoid": "^5.0.7"
+  }
+}

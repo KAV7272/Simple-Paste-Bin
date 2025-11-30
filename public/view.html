@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>View Paste</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.css">
+</head>
+<body>
+  <header class="hero hero--compact">
+    <div class="hero__content">
+      <p class="eyebrow">Shared paste</p>
+      <h1 id="title">Loading paste...</h1>
+      <p id="meta" class="lede"></p>
+    </div>
+  </header>
+
+  <main class="panel">
+    <pre class="code-block"><code id="code" class="language-markup"></code></pre>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+  <script src="view.js"></script>
+</body>
+</html>
